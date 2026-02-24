@@ -1,0 +1,103 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://mama:mama_password@postgres:5432/mama_db
+      - DATABASE_URL_SYNC=postgresql+psycopg://mama:mama_password@postgres:5432/mama_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - USE_LOCAL_STORAGE=true
+      - LOCAL_STORAGE_PATH=/app/media_assets
+    env_file:
+      - ../.env
+    volumes:
+      - ../:/app
+      - media_assets:/app/media_assets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://mama:mama_password@postgres:5432/mama_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - USE_LOCAL_STORAGE=true
+    env_file:
+      - ../.env
+    volumes:
+      - ../:/app
+      - media_assets:/app/media_assets
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A src.worker.celery_app worker --loglevel=info --concurrency=4
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mama
+      POSTGRES_PASSWORD: mama_password
+      POSTGRES_DB: mama_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mama -d mama_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_assets:
+  grafana_data:
+  prometheus_data:

@@ -1,0 +1,30 @@
+{
+  "name": "mama-remotion",
+  "version": "1.0.0",
+  "description": "MAMA Marketing Automation - Remotion animated video compositions",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "npx remotion studio src/index.ts",
+    "build": "npx remotion render src/index.ts MarketingVideo ../media_assets/renders/marketing.mp4",
+    "render": "npx remotion render src/index.ts MarketingVideo",
+    "render:intro": "npx remotion render src/index.ts MarketingIntro out/intro.mp4",
+    "render:highlight": "npx remotion render src/index.ts ContentHighlight out/highlight.mp4",
+    "render:cta": "npx remotion render src/index.ts CallToAction out/cta.mp4",
+    "compositions": "npx remotion compositions src/index.ts"
+  },
+  "keywords": ["remotion", "marketing", "video", "animation"],
+  "author": "MAMA",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@remotion/bundler": "^4.0.427",
+    "@remotion/cli": "^4.0.427",
+    "@remotion/renderer": "^4.0.427",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "remotion": "^4.0.427",
+    "typescript": "^5.9.3"
+  }
+}
