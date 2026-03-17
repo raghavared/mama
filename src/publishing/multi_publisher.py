@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import ContentJob, Platform, PublishedPost
 from .instagram import InstagramPublisher
@@ -18,13 +19,14 @@ logger = structlog.get_logger(__name__)
 class MultiPlatformPublisher:
     """Publishes content to multiple social platforms in parallel."""
 
-    def __init__(self) -> None:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
         self._publishers = {
-            Platform.INSTAGRAM: InstagramPublisher(),
-            Platform.LINKEDIN: LinkedInPublisher(),
-            Platform.FACEBOOK: FacebookPublisher(),
-            Platform.X_TWITTER: TwitterPublisher(),
-            Platform.YOUTUBE: YouTubePublisher(),
+            Platform.INSTAGRAM: InstagramPublisher(db),
+            Platform.LINKEDIN: LinkedInPublisher(db),
+            Platform.FACEBOOK: FacebookPublisher(db),
+            Platform.X_TWITTER: TwitterPublisher(db),
+            Platform.YOUTUBE: YouTubePublisher(db),
         }
 
     async def publish_all(

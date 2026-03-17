@@ -7,6 +7,7 @@ from .models import (
     MediaAssetORM,
     ApprovalRecordORM,
     PublishedPostORM,
+    OAuthTokenORM,
     Base,
 )
 from .session import get_db, engine, AsyncSessionLocal
@@ -20,6 +21,7 @@ __all__ = [
     "MediaAssetORM",
     "ApprovalRecordORM",
     "PublishedPostORM",
+    "OAuthTokenORM",
     "Base",
     "get_db",
     "engine",

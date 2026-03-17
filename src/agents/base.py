@@ -25,6 +25,7 @@ class AgentState(BaseModel):
 
     # Stage outputs
     enriched_topic: Optional[dict[str, Any]] = None
+    gtm_strategy: Optional[dict[str, Any]] = None
     content_brief: Optional[ContentBrief] = None
     script: Optional[Script] = None
     approval_decision: Optional[dict[str, Any]] = None

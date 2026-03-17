@@ -138,3 +138,17 @@ class PublishedPostORM(Base):
     analytics: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     job: Mapped[ContentJobORM] = relationship("ContentJobORM", back_populates="published_posts")
+
+
+class OAuthTokenORM(Base):
+    """Encrypted OAuth token storage for OAuth 2.0 Authorization Code flow."""
+    __tablename__ = "oauth_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    encrypted_token: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

@@ -11,9 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { SystemConfig, Platform } from "@/types";
+import type { SystemConfig, Platform, OAuthConnection, OAuthPlatform } from "@/types";
 import { toast } from "sonner";
-import { Save, Key, Palette, Settings2, RefreshCw } from "lucide-react";
+import { Save, Key, Palette, Settings2, RefreshCw, Link2, Instagram, Linkedin, Facebook, Twitter, Youtube, Link as LinkIcon, Unlink } from "lucide-react";
 
 const ALL_PLATFORMS: { id: Platform; label: string }[] = [
   { id: "instagram", label: "Instagram" },
@@ -23,10 +23,43 @@ const ALL_PLATFORMS: { id: Platform; label: string }[] = [
   { id: "youtube", label: "YouTube" },
 ];
 
+const PLATFORM_CONFIG: Record<
+  OAuthPlatform,
+  { label: string; icon: any; color: string }
+> = {
+  instagram: {
+    label: "Instagram",
+    icon: Instagram,
+    color: "text-pink-600",
+  },
+  facebook: {
+    label: "Facebook",
+    icon: Facebook,
+    color: "text-blue-600",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    icon: Linkedin,
+    color: "text-blue-700",
+  },
+  twitter: {
+    label: "X / Twitter",
+    icon: Twitter,
+    color: "text-black dark:text-white",
+  },
+  youtube: {
+    label: "YouTube",
+    icon: Youtube,
+    color: "text-red-600",
+  },
+};
+
 export default function SettingsPage() {
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [connections, setConnections] = useState<OAuthConnection[]>([]);
+  const [connectingPlatform, setConnectingPlatform] = useState<OAuthPlatform | null>(null);
 
   const loadConfig = async () => {
     setLoading(true);
@@ -40,8 +73,41 @@ export default function SettingsPage() {
     }
   };
 
+  const loadConnections = async () => {
+    try {
+      const data = await api.getOAuthStatus();
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setConnections(data);
+      } else {
+        console.warn('OAuth status returned non-array:', data);
+        setConnections([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to load OAuth connections:', err);
+      setConnections([]); // CRITICAL: Set empty array on error
+      // Don't show error to user - connections are optional
+    }
+  };
+
   useEffect(() => {
     loadConfig();
+    loadConnections();
+
+    // Listen for OAuth callback messages from popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data.type === "oauth_success") {
+        toast.success(`Successfully connected to ${event.data.platform}`);
+        loadConnections();
+      } else if (event.data.type === "oauth_error") {
+        toast.error(event.data.error || "OAuth connection failed");
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   const handleSave = async () => {
@@ -69,6 +135,60 @@ export default function SettingsPage() {
       ? current.filter((p) => p !== platformId)
       : [...current, platformId];
     updateField("active_platforms", updated);
+  };
+
+  const handleConnect = async (platform: OAuthPlatform) => {
+    setConnectingPlatform(platform);
+    try {
+      const response = await api.initiateOAuth(platform);
+
+      // CRITICAL: Validate response before opening popup
+      if (!response || !response.auth_url) {
+        throw new Error(`No authorization URL returned for ${platform}. Please configure OAuth credentials in .env file.`);
+      }
+
+      const { auth_url } = response;
+
+      // Open OAuth URL in popup window
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      window.open(
+        auth_url,
+        "oauth_popup",
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
+    } catch (err: any) {
+      console.error('OAuth initiation error:', err);
+      toast.error(err.message || `Failed to initiate ${platform} OAuth`);
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleDisconnect = async (platform: OAuthPlatform) => {
+    try {
+      await api.disconnectOAuth(platform);
+      toast.success(`Disconnected from ${PLATFORM_CONFIG[platform].label}`);
+      loadConnections();
+    } catch (err: any) {
+      toast.error(err.message || `Failed to disconnect from ${platform}`);
+    }
+  };
+
+  const getConnectionForPlatform = (platform: OAuthPlatform): OAuthConnection => {
+    // Safety check - ensure connections is an array
+    if (!Array.isArray(connections)) {
+      return { platform, status: "disconnected" };
+    }
+    return (
+      connections.find((c) => c.platform === platform) || {
+        platform,
+        status: "disconnected",
+      }
+    );
   };
 
   if (!config && loading) {
@@ -103,6 +223,9 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="apis">
               <Key className="h-3 w-3 mr-1" /> API Keys
+            </TabsTrigger>
+            <TabsTrigger value="social">
+              <Link2 className="h-3 w-3 mr-1" /> Social Connections
             </TabsTrigger>
           </TabsList>
 
@@ -296,6 +419,87 @@ export default function SettingsPage() {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="social">
+            <div className="grid gap-4 max-w-3xl">
+              {(Object.keys(PLATFORM_CONFIG) as OAuthPlatform[]).map((platform) => {
+                const platformConfig = PLATFORM_CONFIG[platform];
+                const connection = getConnectionForPlatform(platform);
+                const Icon = platformConfig.icon;
+                const isConnected = connection.status === "connected";
+                const hasError = connection.status === "error";
+
+                return (
+                  <Card key={platform}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Icon className={`h-6 w-6 ${platformConfig.color}`} />
+                          <div>
+                            <CardTitle className="text-base">{platformConfig.label}</CardTitle>
+                            {isConnected && connection.username && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Connected as: {connection.username}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            isConnected ? "success" : hasError ? "destructive" : "secondary"
+                          }
+                        >
+                          {isConnected
+                            ? "Connected"
+                            : hasError
+                            ? "Error"
+                            : "Not Connected"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {hasError && connection.error_message && (
+                        <p className="text-xs text-destructive mb-3">
+                          {connection.error_message}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {isConnected ? (
+                          <>
+                            {connection.connected_at && (
+                              <p className="text-xs text-muted-foreground flex-1">
+                                Connected on{" "}
+                                {new Date(connection.connected_at).toLocaleDateString()}
+                              </p>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDisconnect(platform)}
+                            >
+                              <Unlink className="h-3 w-3 mr-1" />
+                              Disconnect
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleConnect(platform)}
+                            disabled={connectingPlatform === platform}
+                          >
+                            <LinkIcon className="h-3 w-3 mr-1" />
+                            {connectingPlatform === platform
+                              ? "Opening..."
+                              : "Connect"}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

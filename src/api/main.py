@@ -15,7 +15,7 @@ from prometheus_client import make_asgi_app
 from src.config import get_settings
 from src.utils.logging import configure_logging
 from src.database import Base, engine, AsyncSessionLocal
-from .routers import jobs, health, auth, dashboard, schedule, config, users
+from .routers import jobs, health, auth, dashboard, schedule, config, users, oauth
 from .routers.auth import _decode_token, seed_admin
 
 logger = structlog.get_logger(__name__)
@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(schedule.router, prefix="/api/v1", tags=["schedule"])
     app.include_router(config.router, prefix="/api/v1", tags=["config"])
     app.include_router(users.router, prefix="/api/v1", tags=["users"])
+    app.include_router(oauth.router, prefix="/api/v1", tags=["oauth"])
 
     # ─── WebSocket endpoint ──────────────────────────────────────────────
 
@@ -149,3 +150,7 @@ def create_app() -> FastAPI:
             ws_manager.disconnect(websocket)
 
     return app
+
+
+# Create app instance for uvicorn
+app = create_app()

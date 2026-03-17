@@ -6,9 +6,11 @@ from datetime import datetime
 
 import httpx
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.models import ContentJob, Platform, PublishedPost
+from src.oauth.exceptions import TokenNotFoundError, TokenExpiredError
 from .base_publisher import BasePublisher
 
 logger = structlog.get_logger(__name__)
@@ -20,10 +22,19 @@ class InstagramPublisher(BasePublisher):
     """Publishes image and video posts to Instagram via Graph API."""
 
     platform = Platform.INSTAGRAM
+    platform_name = "instagram"
 
     async def publish(self, job: ContentJob, asset_path: str, caption: str) -> PublishedPost:
         """Publish content to Instagram."""
-        if not self.settings.instagram_access_token or self.settings.is_development:
+        # Check if in development mode
+        if self.settings.is_development:
+            return self._stub_post(job, "instagram")
+
+        # Get access token from database (with env var fallback)
+        try:
+            access_token = await self.get_access_token(fallback_env_var="instagram_access_token")
+        except (TokenNotFoundError, TokenExpiredError) as e:
+            self.logger.error("instagram_token_error", job_id=str(job.id), error=str(e))
             return self._stub_post(job, "instagram")
 
         formatted_caption = self.format_caption(caption, Platform.INSTAGRAM)
@@ -35,9 +46,9 @@ class InstagramPublisher(BasePublisher):
 
         try:
             if is_video:
-                post_id = await self._publish_reel(asset_path, formatted_caption)
+                post_id = await self._publish_reel(asset_path, formatted_caption, access_token)
             else:
-                post_id = await self._publish_image(asset_path, formatted_caption)
+                post_id = await self._publish_image(asset_path, formatted_caption, access_token)
 
             post_url = f"https://www.instagram.com/p/{post_id}/"
             self.logger.info("Published to Instagram", job_id=str(job.id), post_id=post_id)
@@ -53,10 +64,9 @@ class InstagramPublisher(BasePublisher):
             raise
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=4, max=30))
-    async def _publish_image(self, image_url: str, caption: str) -> str:
+    async def _publish_image(self, image_url: str, caption: str, access_token: str) -> str:
         """Upload and publish an image post."""
         account_id = self.settings.instagram_account_id
-        token = self.settings.instagram_access_token
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             # Step 1: Create media container
@@ -65,7 +75,7 @@ class InstagramPublisher(BasePublisher):
                 params={
                     "image_url": image_url,
                     "caption": caption,
-                    "access_token": token,
+                    "access_token": access_token,
                 },
             )
             create_resp.raise_for_status()
@@ -74,16 +84,15 @@ class InstagramPublisher(BasePublisher):
             # Step 2: Publish the container
             publish_resp = await client.post(
                 f"{INSTAGRAM_GRAPH_URL}/{account_id}/media_publish",
-                params={"creation_id": container_id, "access_token": token},
+                params={"creation_id": container_id, "access_token": access_token},
             )
             publish_resp.raise_for_status()
             return publish_resp.json()["id"]
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=4, max=30))
-    async def _publish_reel(self, video_url: str, caption: str) -> str:
+    async def _publish_reel(self, video_url: str, caption: str, access_token: str) -> str:
         """Upload and publish a Reel."""
         account_id = self.settings.instagram_account_id
-        token = self.settings.instagram_access_token
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             create_resp = await client.post(
@@ -93,7 +102,7 @@ class InstagramPublisher(BasePublisher):
                     "video_url": video_url,
                     "caption": caption,
                     "share_to_feed": "true",
-                    "access_token": token,
+                    "access_token": access_token,
                 },
             )
             create_resp.raise_for_status()
@@ -101,7 +110,7 @@ class InstagramPublisher(BasePublisher):
 
             publish_resp = await client.post(
                 f"{INSTAGRAM_GRAPH_URL}/{account_id}/media_publish",
-                params={"creation_id": container_id, "access_token": token},
+                params={"creation_id": container_id, "access_token": access_token},
             )
             publish_resp.raise_for_status()
             return publish_resp.json()["id"]

@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = Field(default="")
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"
 
-    # === Social Platforms ===
+    # === Social Platforms (Legacy Direct Tokens) ===
     instagram_access_token: str = Field(default="")
     instagram_account_id: str = Field(default="")
     linkedin_access_token: str = Field(default="")
@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     twitter_access_token_secret: str = Field(default="")
     youtube_api_key: str = Field(default="")
     youtube_channel_id: str = Field(default="")
+
+    # === OAuth Client Credentials (Authorization Code Flow) ===
+    instagram_client_id: str = Field(default="")
+    instagram_client_secret: str = Field(default="")
+    facebook_client_id: str = Field(default="")
+    facebook_client_secret: str = Field(default="")
+    linkedin_client_id: str = Field(default="")
+    linkedin_client_secret: str = Field(default="")
+    twitter_client_id: str = Field(default="")
+    twitter_client_secret: str = Field(default="")
+    youtube_client_id: str = Field(default="")
+    youtube_client_secret: str = Field(default="")
 
     # === Database ===
     database_url: str = "postgresql+asyncpg://mama:mama_password@localhost:5432/mama_db"

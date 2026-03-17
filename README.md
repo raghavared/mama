@@ -216,6 +216,54 @@ The dashboard will be available at `http://localhost:3000`.
 - Email: `admin@mama.ai`
 - Password: `admin123`
 
+### Setting Up OAuth for Social Publishing
+
+MAMA supports two authentication methods for social media publishing:
+
+1. **OAuth 2.0 (Recommended)** - Secure, user-level authentication with automatic token refresh
+2. **Legacy Direct Tokens** - Platform-specific access tokens (deprecated, limited features)
+
+To set up OAuth for each platform:
+
+1. **Read the setup guide**: See [docs/oauth-setup.md](docs/oauth-setup.md) for detailed instructions
+2. **Create developer apps** on each platform (Instagram, Facebook, LinkedIn, Twitter, YouTube)
+3. **Configure redirect URIs** pointing to your MAMA backend callback endpoint
+4. **Add client credentials** to your `.env` file
+5. **Connect accounts** via the dashboard at Settings → Social Connections
+
+**Quick start for development:**
+
+```bash
+# Example OAuth credentials in .env
+INSTAGRAM_CLIENT_ID=your_instagram_app_id
+INSTAGRAM_CLIENT_SECRET=your_instagram_app_secret
+
+FACEBOOK_CLIENT_ID=your_facebook_app_id
+FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
+
+LINKEDIN_CLIENT_ID=your_linkedin_client_id
+LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+
+TWITTER_CLIENT_ID=your_twitter_oauth2_client_id
+TWITTER_CLIENT_SECRET=your_twitter_oauth2_client_secret
+
+YOUTUBE_CLIENT_ID=your_google_client_id
+YOUTUBE_CLIENT_SECRET=your_google_client_secret
+```
+
+**Redirect URIs for development:**
+```
+http://localhost:8000/api/oauth/callback/instagram
+http://localhost:8000/api/oauth/callback/facebook
+http://localhost:8000/api/oauth/callback/linkedin
+http://localhost:8000/api/oauth/callback/twitter
+http://localhost:8000/api/oauth/callback/youtube
+```
+
+For production deployment, use your production domain with HTTPS.
+
+See [docs/oauth-setup.md](docs/oauth-setup.md) for complete platform-specific instructions.
+
 ---
 
 ## Dashboard

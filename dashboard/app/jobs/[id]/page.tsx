@@ -32,6 +32,8 @@ import {
   ChevronRight,
   History,
   Maximize2,
+  Rocket,
+  Target,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -58,6 +60,7 @@ interface JobWithLogs extends ContentJob {
 
 const STEP_LABELS: Record<string, string> = {
   mama_enrichment: "MAMA - Topic Enrichment",
+  gtm_strategy: "GTM - Go-To-Market Strategy",
   cmi_brief: "CMI - Content Brief",
   decision_maker: "Decision Maker",
   cst_script: "CST - Image Script",
@@ -544,6 +547,9 @@ export default function JobDetailPage() {
             <TabsTrigger value="brief">
               <FileText className="h-3 w-3 mr-1" /> Brief
             </TabsTrigger>
+            <TabsTrigger value="gtm">
+              <Rocket className="h-3 w-3 mr-1" /> GTM Strategy
+            </TabsTrigger>
             <TabsTrigger value="script">
               <FileText className="h-3 w-3 mr-1" /> Script
             </TabsTrigger>
@@ -598,6 +604,158 @@ export default function JobDetailPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                 {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isProcessing ? "Generating content brief..." : "Content brief not yet generated."}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="gtm">
+            {job.metadata?.gtm_strategy ? (() => {
+              const gtm = job.metadata.gtm_strategy as Record<string, any>;
+              const icp = gtm.icp || {};
+              const positioning = gtm.positioning || {};
+              const ci = gtm.competitive_intelligence || {};
+              const channel = gtm.channel_strategy || {};
+              const funnel = gtm.funnel_mapping || {};
+              const perf = gtm.performance_targets || {};
+              return (
+                <div className="space-y-4">
+                  {/* ICP */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Target className="h-4 w-4" /> Ideal Customer Profile
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-2">
+                      {icp.primary_persona && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Primary Persona</label>
+                          <p className="text-sm font-medium">{icp.primary_persona.title}</p>
+                          <p className="text-xs text-muted-foreground">{icp.primary_persona.company_profile}</p>
+                          {icp.primary_persona.pain_points && (
+                            <div className="mt-1">
+                              <span className="text-xs font-medium text-red-600">Pain Points:</span>
+                              <ul className="list-disc list-inside text-xs">{icp.primary_persona.pain_points.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                            </div>
+                          )}
+                          {icp.primary_persona.desires && (
+                            <div className="mt-1">
+                              <span className="text-xs font-medium text-green-600">Desires:</span>
+                              <ul className="list-disc list-inside text-xs">{icp.primary_persona.desires.map((d: string, i: number) => <li key={i}>{d}</li>)}</ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {icp.anti_persona && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Anti-Persona (NOT targeting)</label>
+                          <p className="text-xs">{icp.anti_persona}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Positioning */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Positioning</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-2">
+                      {positioning.value_proposition && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Value Proposition</label>
+                          <p className="text-sm">{positioning.value_proposition}</p>
+                        </div>
+                      )}
+                      {positioning.positioning_statement && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Positioning Statement</label>
+                          <p className="text-sm italic border-l-2 border-primary pl-3">{positioning.positioning_statement}</p>
+                        </div>
+                      )}
+                      {positioning.key_differentiators && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Key Differentiators</label>
+                          <ul className="list-disc list-inside text-sm">{positioning.key_differentiators.map((d: string, i: number) => <li key={i}>{d}</li>)}</ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Competitive Intelligence + Channel Strategy side by side */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Competitive Intelligence</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0 space-y-2 text-sm">
+                        {ci.differentiation_angle && <div><label className="text-xs font-medium text-muted-foreground">Differentiation Angle</label><p>{ci.differentiation_angle}</p></div>}
+                        {ci.market_timing && <div><label className="text-xs font-medium text-muted-foreground">Market Timing</label><p>{ci.market_timing}</p></div>}
+                        {ci.content_gaps && <div><label className="text-xs font-medium text-muted-foreground">Content Gaps</label><ul className="list-disc list-inside text-xs">{ci.content_gaps.map((g: string, i: number) => <li key={i}>{g}</li>)}</ul></div>}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Funnel Mapping</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0 space-y-2 text-sm">
+                        {funnel.buyer_journey_stage && <div><label className="text-xs font-medium text-muted-foreground">Buyer Stage</label><Badge variant="secondary" className="ml-1">{funnel.buyer_journey_stage}</Badge></div>}
+                        {funnel.content_objective && <div><label className="text-xs font-medium text-muted-foreground">Objective</label><p>{funnel.content_objective}</p></div>}
+                        {funnel.lead_capture_mechanism && <div><label className="text-xs font-medium text-muted-foreground">Lead Capture</label><p>{funnel.lead_capture_mechanism}</p></div>}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Channel Strategy */}
+                  {channel.channel_priority_ranking && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Channel Strategy</CardTitle>
+                        {channel.primary_channel && <p className="text-xs text-muted-foreground">Primary: {channel.primary_channel}</p>}
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {channel.channel_priority_ranking.map((ch: any, i: number) => (
+                            <div key={i} className="rounded border p-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium capitalize">{ch.platform}</span>
+                                <Badge variant={ch.priority === "high" ? "default" : ch.priority === "medium" ? "secondary" : "outline"} className="text-[10px]">{ch.priority}</Badge>
+                              </div>
+                              {ch.rationale && <p className="text-muted-foreground mt-1">{ch.rationale}</p>}
+                              {ch.content_format && <p className="mt-0.5"><span className="font-medium">Format:</span> {ch.content_format}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Performance Targets */}
+                  {perf.kpis && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Performance Targets</CardTitle>
+                        {perf.north_star_metric && <p className="text-xs text-muted-foreground">North Star: {perf.north_star_metric}</p>}
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {perf.kpis.map((kpi: any, i: number) => (
+                            <div key={i} className="rounded border p-2 text-center">
+                              <p className="text-sm font-bold">{kpi.target}</p>
+                              <p className="text-xs text-muted-foreground">{kpi.metric}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              );
+            })() : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isProcessing ? "Building GTM strategy..." : "GTM strategy not yet generated."}
               </div>
             )}
           </TabsContent>

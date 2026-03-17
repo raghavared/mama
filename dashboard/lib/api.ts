@@ -5,6 +5,8 @@ import type {
   ScheduledJob,
   SystemConfig,
   AgentActivity,
+  OAuthConnection,
+  OAuthPlatform,
 } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -219,6 +221,25 @@ class ApiClient {
 
   async deleteJob(jobId: string) {
     return this.request<void>(`/api/v1/jobs/${jobId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // ─── OAuth & Social Connections ─────────────────────────────────────
+
+  async getOAuthStatus() {
+    return this.request<OAuthConnection[]>("/api/v1/oauth/status");
+  }
+
+  async initiateOAuth(platform: OAuthPlatform) {
+    return this.request<{ auth_url: string }>(
+      `/api/v1/oauth/${platform}/authorize`,
+      { method: "POST" }
+    );
+  }
+
+  async disconnectOAuth(platform: OAuthPlatform) {
+    return this.request<void>(`/api/v1/oauth/${platform}/disconnect`, {
       method: "DELETE",
     });
   }

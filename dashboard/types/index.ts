@@ -22,6 +22,7 @@ export interface AuthState {
 export type JobStatus =
   | "pending"
   | "in_progress"
+  | "paused"
   | "awaiting_approval"
   | "approved"
   | "rejected"
@@ -107,6 +108,7 @@ export interface MediaAsset {
   type: "image" | "video_clip" | "audio" | "final_video";
   source: string;
   file_path: string;
+  url: string;
   format: string;
   quality_score?: number;
   metadata: Record<string, any>;
@@ -202,4 +204,19 @@ export interface SystemConfig {
   image_generation_provider: 'dalle' | 'gemini' | 'stable_diffusion';
   active_platforms: Platform[];
   api_keys_configured: Record<string, boolean>;
+}
+
+// ─── OAuth & Social Connections ─────────────────────────────────────────────
+
+export type OAuthPlatform = 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'youtube';
+
+export type OAuthConnectionStatus = 'connected' | 'disconnected' | 'error';
+
+export interface OAuthConnection {
+  platform: OAuthPlatform;
+  status: OAuthConnectionStatus;
+  username?: string;
+  user_id?: string;
+  connected_at?: string;
+  error_message?: string;
 }

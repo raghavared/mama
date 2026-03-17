@@ -21,6 +21,7 @@ env/
 dashboard/.next/
 dashboard/node_modules/
 remotion/node_modules/
+node_modules/
 
 # Testing
 .pytest_cache/

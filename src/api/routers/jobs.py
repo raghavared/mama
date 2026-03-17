@@ -298,13 +298,49 @@ async def run_pipeline(job_id: str) -> None:
             return
 
         await _log_step(job_id, "mama_enrichment", "done", f"Engagement: {state.enriched_topic.get('estimated_engagement_potential', '?') if state.enriched_topic else '?'}")
-        logger.info("STEP 1/5  MAMA done", job_id=job_id)
+        logger.info("STEP 1/6  MAMA done", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": "mama_enrichment", "status": "done"})
 
-        # ── Step 2: CMI Agent — Content Brief ────────────────────────────
+        # ── Step 2: GTM Head — Go-To-Market Strategy ─────────────────────
+        await _check_paused(job_id)
+        await _log_step(job_id, "gtm_strategy", "running", "GTM Head building go-to-market strategy...")
+        logger.info("STEP 2/6  GTM Head building strategy...", job_id=job_id)
+        await _broadcast_event("step_update", job_id, {"step": "gtm_strategy", "status": "running"})
+
+        from src.agents.gtm import GTMHeadAgent
+        gtm = GTMHeadAgent()
+        state = await gtm.run(state)
+
+        if state.error:
+            await _save_job_field(job_id, status="failed", error_message=state.error, current_step=None)
+            await _log_step(job_id, "gtm_strategy", "failed", state.error)
+            logger.error("PIPELINE FAILED at GTM", job_id=job_id, error=state.error)
+            await _broadcast_event("step_update", job_id, {"step": "gtm_strategy", "status": "failed", "error": state.error})
+            return
+
+        # Save GTM strategy to job metadata
+        if state.gtm_strategy:
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    select(ContentJobORM).where(ContentJobORM.id == uuid.UUID(job_id))
+                )
+                orm = result.scalar_one_or_none()
+                if orm:
+                    meta = dict(orm.metadata_ or {})
+                    meta["gtm_strategy"] = state.gtm_strategy
+                    orm.metadata_ = meta
+                    orm.updated_at = datetime.now(timezone.utc)
+                    await session.commit()
+
+        primary_channel = state.gtm_strategy.get("channel_strategy", {}).get("primary_channel", "?") if state.gtm_strategy else "?"
+        await _log_step(job_id, "gtm_strategy", "done", f"Primary channel: {primary_channel}")
+        logger.info("STEP 2/6  GTM done", job_id=job_id)
+        await _broadcast_event("step_update", job_id, {"step": "gtm_strategy", "status": "done"})
+
+        # ── Step 3: CMI Agent — Content Brief ────────────────────────────
         await _check_paused(job_id)
         await _log_step(job_id, "cmi_brief", "running", "CMI generating content brief...")
-        logger.info("STEP 2/5  CMI agent generating content brief...", job_id=job_id)
+        logger.info("STEP 3/6  CMI agent generating content brief...", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": "cmi_brief", "status": "running"})
 
         from src.agents.cmi import CMIAgent
@@ -333,13 +369,13 @@ async def run_pipeline(job_id: str) -> None:
             await _save_job_field(job_id, content_brief=content_brief_data)
 
         await _log_step(job_id, "cmi_brief", "done", f"Angle: {state.content_brief.marketing_angle if state.content_brief else '?'}")
-        logger.info("STEP 2/5  CMI done", job_id=job_id)
+        logger.info("STEP 3/6  CMI done", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": "cmi_brief", "status": "done"})
 
-        # ── Step 3: Decision Maker ───────────────────────────────────────
+        # ── Step 4: Decision Maker ───────────────────────────────────────
         await _check_paused(job_id)
         await _log_step(job_id, "decision_maker", "running", "Deciding pipeline type...")
-        logger.info("STEP 3/5  Decision Maker routing...", job_id=job_id)
+        logger.info("STEP 4/6  Decision Maker routing...", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": "decision_maker", "status": "running"})
 
         from src.agents.decision_maker import DecisionMakerAgent
@@ -350,14 +386,14 @@ async def run_pipeline(job_id: str) -> None:
         await _save_job_field(job_id, pipeline_type=pipeline)
 
         await _log_step(job_id, "decision_maker", "done", f"Pipeline: {pipeline}")
-        logger.info("STEP 3/5  Decision Maker done", job_id=job_id, pipeline=pipeline)
+        logger.info("STEP 4/6  Decision Maker done", job_id=job_id, pipeline=pipeline)
         await _broadcast_event("step_update", job_id, {"step": "decision_maker", "status": "done", "pipeline": pipeline})
 
-        # ── Step 4: Script Generation (CST or VST) ──────────────────────
+        # ── Step 5: Script Generation (CST or VST) ──────────────────────
         await _check_paused(job_id)
         step_name = "cst_script" if pipeline == "image_post" else "vst_script"
         await _log_step(job_id, step_name, "running", f"{'CST' if pipeline == 'image_post' else 'VST'} generating script...")
-        logger.info(f"STEP 4/5  {'CST' if pipeline == 'image_post' else 'VST'} generating script...", job_id=job_id)
+        logger.info(f"STEP 5/6  {'CST' if pipeline == 'image_post' else 'VST'} generating script...", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": step_name, "status": "running"})
 
         if pipeline == "image_post":
@@ -400,13 +436,13 @@ async def run_pipeline(job_id: str) -> None:
             await _save_job_field(job_id, script_data=script_data)
 
         await _log_step(job_id, step_name, "done", "Script generated")
-        logger.info("STEP 4/5  Script done", job_id=job_id)
+        logger.info("STEP 5/6  Script done", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": step_name, "status": "done"})
 
-        # ── Step 5: CSA — Script Approval ────────────────────────────────
+        # ── Step 6: CSA — Script Approval ────────────────────────────────
         await _check_paused(job_id)
         await _log_step(job_id, "csa_approval", "running", "CSA reviewing script quality...")
-        logger.info("STEP 5/5  CSA approving script...", job_id=job_id)
+        logger.info("STEP 6/6  CSA approving script...", job_id=job_id)
         await _broadcast_event("step_update", job_id, {"step": "csa_approval", "status": "running"})
 
         from src.agents.csa import CSAAgent
@@ -418,7 +454,7 @@ async def run_pipeline(job_id: str) -> None:
             score = state.approval_decision.get("overall_score", "?")
 
             await _log_step(job_id, "csa_approval", "done", f"Decision: {decision} (score: {score})")
-            logger.info("STEP 5/5  CSA verdict", job_id=job_id, decision=decision, score=score)
+            logger.info("STEP 6/6  CSA verdict", job_id=job_id, decision=decision, score=score)
             await _broadcast_event("step_update", job_id, {"step": "csa_approval", "status": "done", "decision": decision, "score": score})
 
             if decision == "rejected":
@@ -431,7 +467,7 @@ async def run_pipeline(job_id: str) -> None:
                 await _broadcast_event("pipeline_complete", job_id, {"status": "rejected"})
                 return
 
-        # ── Step 6: Media Generation ─────────────────────────────────────
+        # ── Step 7: Media Generation ─────────────────────────────────────
         await _check_paused(job_id)
         if pipeline == "image_post":
             await _log_step(job_id, "image_generation", "running", "Generating images from script prompts...")
@@ -717,7 +753,7 @@ async def reinitiate_job(
     return {"job_id": job_id, "status": "pending"}
 
 
-@router.delete("/jobs/{job_id}", status_code=204)
+@router.delete("/jobs/{job_id}", status_code=204, response_model=None)
 async def delete_job(
     job_id: str,
     user: dict = Depends(get_current_user),

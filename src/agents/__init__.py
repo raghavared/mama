@@ -1,5 +1,6 @@
 from .base import BaseAgent, AgentState
 from .mama import MAMAAgent
+from .gtm import GTMHeadAgent
 from .cmi import CMIAgent
 from .decision_maker import DecisionMakerAgent
 from .cst import CSTAgent
@@ -10,6 +11,7 @@ __all__ = [
     "BaseAgent",
     "AgentState",
     "MAMAAgent",
+    "GTMHeadAgent",
     "CMIAgent",
     "DecisionMakerAgent",
     "CSTAgent",

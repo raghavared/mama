@@ -38,6 +38,9 @@ CMI_USER_PROMPT_TEMPLATE = """Create a world-class content marketing brief for t
 ENRICHED TOPIC DATA:
 {enriched_topic_json}
 
+GTM STRATEGY (from GTM Head — use this to sharpen your ICP targeting, positioning, and channel tactics):
+{gtm_strategy_json}
+
 BRAND CONTEXT: {brand_context}
 CONTENT GOALS: {content_goals}
 
@@ -92,8 +95,10 @@ class CMIAgent(BaseAgent):
 
         self.logger.info("CMI generating content brief", job_id=str(job.id))
 
+        gtm_strategy = state.gtm_strategy or {}
         user_message = CMI_USER_PROMPT_TEMPLATE.format(
             enriched_topic_json=json.dumps(enriched_topic, indent=2),
+            gtm_strategy_json=json.dumps(gtm_strategy, indent=2) if gtm_strategy else "Not available",
             brand_context=self.settings.brand_context,
             content_goals=self.settings.content_goals,
         )
